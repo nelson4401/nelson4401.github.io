@@ -1,0 +1,16 @@
+---
+title: "Simple Website"
+author: "Lauren Nelson"
+date: "11/8/2021"
+output: html_document
+---
+
+# 
+
+# Simple Website
+
+## Note: The 6 lines of above are the YAML tags
+
+### We will Knit the RMD to an html file next
+
+Then push index.html to the github.io repo
