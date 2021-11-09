@@ -5,15 +5,23 @@ date: "11/8/2021"
 output: html_document
 ---
 
-# 
-
 # About Me
 
+
+
+![Nelson Image](/Users/lnelson/Box/MSDS/MSDS_6306_Doing-Data-Science-Master/Unit 12/Assignments/Simple Website/Simple Website/Nelson4401.png)
+
 ## Name: Lauren Nelson
+
 ### Location: Dallas, TX
-### Employer: Southern Methodist University</h2>
-### Education: B.A. Professional Music - Berklee College of Music - Boston, MA
-### B.A. Sociology - Southern Methodist University - Dallas, TX
-### MSDS - Southern Methodist University (Current) - Dallas, TX
+
+### Employer: Southern Methodist University
+
+### Education: Berklee College of Music - Boston, MA | Southern Methodist University - Dallas, TX
+
+
+
+
+
 
 The other tabs represent work/analyses that are available for your review.  Thanks for checking out my work!
