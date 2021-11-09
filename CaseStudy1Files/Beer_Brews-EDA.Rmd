@@ -1,0 +1,288 @@
+---
+title: "DS6306 Case Study 01 - Beers and Breweries"
+authors: "Lauren Nelson, Alan Abadzic, Robert Derner"
+date: "10/9/21"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+library(usmap)
+library(ggplot2)
+library(maps)
+library(ggsn)
+library(plotly)
+library(tidyverse)
+library(rmarkdown)
+library(class)
+library(e1071)
+library(caret)
+library(tm) #text mining library provides the stopwords() function
+library(tidyr)
+library(plyr)
+library(jsonlite)
+library(dplyr)
+library(mvtnorm)
+library(RCurl) #getURL
+library(readr) #gotta run the readr library
+library(sqldf)
+library(knitr)
+library(stringr)
+library(mapdata)
+```
+
+# Introduction
+This provides insight and analysis into Beer and Brewery data across the U.S. provided by Budweiser Executives for strategic decision making.
+
+```{r}
+#library(tidyverse)
+beers = read_csv(url("https://raw.githubusercontent.com/BivinSadler/MSDS_6306_Doing-Data-Science/Master/Unit%208%20and%209%20Case%20Study%201/Beers.csv"))
+breweries = read_csv(url("https://raw.githubusercontent.com/BivinSadler/MSDS_6306_Doing-Data-Science/Master/Unit%208%20and%209%20Case%20Study%201/Breweries.csv"))
+
+summary(beers)
+summary(breweries)
+
+head(beers)
+head(breweries)
+```
+
+1.	How many breweries are present in each state?
+# Breweries by State
+```{r, echo=FALSE, message = FALSE, warning=FALSE, error=FALSE}
+
+#st_data -- Breweries Filtered by State - joined with FIPS code by State
+#mutate - Join FIPS data with Breweries data
+#trimws - remove Leading/Trailing Whitespace from column(State)
+#fips = State by Abbreviation - ie. TX
+
+st_data = breweries %>% count(State) %>% mutate(fips = fips(trimws(State)))
+
+us_map <- usmap::us_map(regions = c("states")) # used to add map scale
+
+usmap::plot_usmap(data = st_data, values = "n", labels = T)+
+  labs(fill = 'Breweries by State') + 
+  scale_fill_gradientn(colours=rev(topo.colors(50)),na.value="grey90",
+                       guide = guide_colourbar(barwidth = 25, barheight = 0.6,
+#put legend title on top of legend
+title.position = "top")) +
+
+  # put legend at the bottom, adjust legend title and text font sizes
+  theme(legend.position = "bottom",
+        legend.title=element_text(size=12), 
+        legend.text=element_text(size=10))
+```
+
+
+2.	Merge beer data with the breweries data. Print the first 6 observations and the last six observations to check the merged file.  (RMD only, this does not need to be included in the presentation or the deck.)
+
+
+```{r}
+#Merge beer and breweries data - trim whitespace - add in FIPS codes
+full_data = merge(beers,breweries,by.y="Brew_ID",by.x="Brewery_id") %>%
+  mutate(fips = fips(trimws(State)))
+
+head(full_data)
+tail(full_data)
+full_data[sample(1:nrow(full_data),6),]
+```
+
+3.	Address the missing values in each column.
+
+Two Datasets, "Beers.csv" and "Breweries.csv" were joined to create a Full Dataset for analysis and insight
+
+Only ABV and IBU are missing Data Values
+
+Important to note: IBU is missing values in  around 42% of the 2,410 total rows of data
+
+**Predictions for IBU specifically, may be skewed
+
+```{r}
+#use colSum to sum up the NA's in each column
+full_dataNAs <- as.data.frame(colSums(is.na(full_data)))
+names(full_dataNAs) <- c("Missing Values (NAs)")
+full_dataNAs
+
+summary(full_data) #provide summary of the combined data set
+
+1005/2410 #Calculate percentage missing data from IBU Column
+```
+
+4.	Compute the median alcohol content and international bitterness unit for each state. Plot a bar chart to compare.
+# Alcohol Content, Bitterness by State - BarChart
+
+```{r}
+#Preliminary Steps
+
+#Import Beer and Brewery Data Sets
+Beer = read.csv("https://raw.githubusercontent.com/BivinSadler/MSDS_6306_Doing-Data-Science/Master/Unit%208%20and%209%20Case%20Study%201/Beers.csv", header = TRUE)
+Breweries = read.csv("https://raw.githubusercontent.com/BivinSadler/MSDS_6306_Doing-Data-Science/Master/Unit%208%20and%209%20Case%20Study%201/Breweries.csv", header = TRUE)
+
+#Updating the name of the first column of the breweries dataset so there is a matching column between the two datasets
+names(Breweries)[1] <- 'Brewery_id'
+
+#Merging the two sets together by the Brewery ID column
+BB = merge(Beer,Breweries, by="Brewery_id", all = TRUE)
+#Updating the mame of the 8th column so that it is Brewery
+names(BB)[8] <- 'Brewery'
+#Omitting all N/A values from the ABV and IBU columns
+x = na.omit(BB[,c(4,10)])
+y = na.omit(BB[,c(5,10)])
+```
+
+Alcohol by Volume Comparison by State
+
+```{r}
+#Finding the median ABV of each state
+medians = aggregate(x=x$ABV, by = list(x$State), FUN = median)
+#Finding the median IBU of each state
+mediansIBU = aggregate(x=y$IBU, by = list(y$State), FUN = median)
+#Updating column names of the median ABV dataset
+names(medians)[1]<- 'State'
+names(medians)[2]<- 'ABV'
+#Updating column names of the median IBU dataset
+names(mediansIBU)[1]<- 'State'
+names(mediansIBU)[2]<- 'IBU'
+
+#Plotting the median ABV of each state
+p = medians %>%
+ggplot(mapping = aes(x=State, y=ABV)) + geom_bar(stat = 'identity', fill = topo.colors(51), width = .5,color = 'black', show.legend = TRUE) + labs(y= "Median ABV", title = "Median ABV of Beers by State") 
+
+ggplotly(p) #Add interactive data labels
+```
+
+Bitterness Comparison by State 
+
+```{r}
+#Plotting the median IBU of each state
+p = mediansIBU %>%
+ggplot(mapping = aes(x=State, y=IBU)) + geom_bar(stat = 'identity', fill = topo.colors(50), width = .5,color = 'black') + labs(y= "Median IBU", title = "Median IBU of Beers by State") 
+
+ggplotly(p) #Add interacitve data labels
+```
+
+5a.	Which state has the maximum alcoholic (ABV) beer? 
+#Max ABV = CO
+```{r}
+#Finding the highest ABV of all the states
+MaxABV = aggregate(x$ABV, by = list(x$State),max)
+#Finding the highest IBU of all the states
+MaxIBU = aggregate(y$IBU, by = list(y$State),max)
+#Updating column names of the max IBU dataset
+names(MaxIBU)[1]<- 'State'
+names(MaxIBU)[2]<- 'IBU'
+#Updating column names of the max ABV dataset
+names(MaxABV)[1]<- 'State'
+names(MaxABV)[2]<- 'ABV'
+#Order the MAX ABV and IBU datasets in descending order
+MaxABV = BB[order(BB$ABV, decreasing = TRUE),]
+MaxIBU = BB[order(BB$IBU, decreasing = TRUE),]
+
+#Plotting the Max ABV of each state
+p = MaxABV %>%
+ggplot(mapping = aes(x=State, y=ABV)) + geom_bar(stat = "identity", fill = "darkslateblue") + labs(y="ABV", title = "Highest ABVs per State") 
+
+ggplotly(p)
+```
+
+5b. Which state has the most bitter (IBU) beer?
+#Most Bitter Beer = OR
+```{r}
+#Plotting the Max IBU of each state
+p = MaxIBU %>%
+ggplot(mapping = aes(x=State, y=IBU)) + geom_bar(stat = "identity", fill = "chartreuse3", width = .5,color = 'darkslateblue') + labs(y="IBU", title = "Highest IBUs per State") 
+ggplotly(p)
+```
+
+6.	Comment on the summary statistics and distribution of the ABV variable.
+
+```{r}
+#Budweiser
+
+Beers = read_csv(url("https://raw.githubusercontent.com/BivinSadler/MSDS_6306_Doing-Data-Science/Master/Unit%208%20and%209%20Case%20Study%201/Beers.csv"))
+Breweries = read_csv(url("https://raw.githubusercontent.com/BivinSadler/MSDS_6306_Doing-Data-Science/Master/Unit%208%20and%209%20Case%20Study%201/Breweries.csv"))
+
+
+
+
+
+#merge the data before performing EDA
+names(Breweries)[1] <- 'Brewery_id'
+Breweries
+Beer_Merge <- merge(x=Beers,y=Breweries, by = "Brewery_id", all.x = TRUE)
+
+lookup = data.frame(abb = state.abb, State = state.name) #makes a data frame with State name and abbreviation.
+
+summary(Beer_Merge$ABV) #see summary statistics of mean, median, mode, and quartlies
+#plot the distribution of ABV
+Beer_Merge %>%
+  ggplot(aes(x = ABV)) + geom_density(binwidth = .5, colour="black",fill="chartreuse3") +
+  geom_vline(aes(xintercept=mean(ABV, na.rm=T)),
+             color = "red", linetype = "dashed", size = 1) +
+  ggtitle("Distribution Density of ABV")
+```
+
+7.	Is there an apparent relationship between the bitterness of the beer and its alcoholic content? Draw a scatter plot.  Make your best judgment of a relationship and EXPLAIN your answer.
+
+**There appears to a positive correlation between ABV and IBU however, IBU values may be skewed due to missing IBU data - 42% of total missing**
+
+```{r}
+Beer_Merge %>%
+  ggplot(aes(x = ABV, y = IBU, fill = "sample")) +
+  geom_point() + geom_smooth(method =  lm) +
+  ggtitle("Relationship Between IBU and ABV")
+
+correlation_test = cor.test(Beer_Merge$ABV,Beer_Merge$IBU) #run correlation to determine p value and r-sqaured
+correlation_test #showcase statistics
+
+#The scatterplot shows a positive correlation between level of bitterness and alcohol by volume indicating that the higher the bitterness the more alcohol that tends to be contatined within
+
+#Even with a sample of 1005 beers out of 2410 observations in total of IBU, we can conclude that a p value of 2.2e-16 we can say,
+#we should reject the null hypothesis given an intercept of 0, which is further proved by the confidence interval
+#being .64 to .69 at alpha of .05 or 95%.
+#There appears to be a strong relationship with a r-squared correlation of .6706 squared = .45.
+#It's a fair to state that when the ABV or IBU is increased the other shall also increase.
+```
+
+##Bonus Insights
+
+```{r}
+#Top 2 States _____#CO | #CA - Top Beer Styles for Top 2 States 
+
+COStyle = full_data %>% filter(fips == "08") %>% select(State,Style) %>% group_by(State) %>% 
+  count(Style) %>% slice_max(n,n=5) %>% mutate(fips = fips(trimws(State)))
+
+#Colorado Top Beer Styles BarChart
+p = COStyle %>% 
+  arrange(desc(COStyle$Style)) %>% 
+  mutate(Style = factor(Style)) %>% 
+  ggplot(aes(y=Style,x=COStyle$n, fill = COStyle$n)) + geom_bar(stat='identity', show.legend = TRUE, width = .8) +
+  labs(fill = 'CO Beer Styles') +
+  ggtitle("Top Colorado Beer Styles")
+
+ggplotly(p)
+
+
+CAStyle = full_data %>% filter(fips == "06") %>% select(State,Style) %>% group_by(State) %>% 
+  count(Style) %>% slice_max(n,n=5) %>% mutate(fips = fips(trimws(State)))
+
+
+#California Top Beer Styles BarChart
+p = CAStyle %>% 
+  arrange(desc(CAStyle$n)) %>% 
+  mutate(Style = factor(Style)) %>% 
+  ggplot(mapping = aes(y=Style,x=CAStyle$n, fill = CAStyle$n)) + geom_bar(stat='identity', show.legend = TRUE, width = .8) +
+  labs(fill = 'CA Beer Styles') +
+ggtitle("Top California Beer Styles")
+  
+ggplotly(p)
+  
+```
+# Ale Classification by Alcohol Content and Bitterness
+```{r, echo=FALSE, message = FALSE, warning=FALSE}
+sub_data = full_data %>% mutate(IPA = grepl('IPA',full_data$Style),Ale  =grepl('Ale',full_data$Style)) %>% filter(IPA | Ale) %>% select(IPA,ABV,IBU)
+
+sub_data = sub_data %>% mutate(Zabv = scale(ABV),Zibu = scale(IBU))
+
+sub_data %>% ggplot(mapping = aes(x=Zabv,y=Zibu,color=IPA)) + geom_point(position = 'jitter')
+
+```
